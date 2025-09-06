@@ -13,6 +13,16 @@ h1 {
   margin-bottom: 1rem;
 }
 
+.controls h3 {
+  margin: 1rem 0 0.5rem 0;
+  color: #333;
+  font-size: 1.1rem;
+}
+
+.controls h3:first-child {
+  margin-top: 0;
+}
+
 button {
   margin-right: 0.5rem;
   padding: 0.5rem 1rem;

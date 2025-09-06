@@ -1,48 +1,70 @@
 'use strict';
 
-const fs = require('node:fs');
-const http = require('node:http');
-const path = require('node:path');
+const fastify = require('fastify')({
+  logger: {
+    level: 'info',
+    transport: {
+      target: 'pino-pretty',
+      options: {
+        translateTime: 'HH:MM:ss Z',
+        ignore: 'pid,hostname',
+      },
+    },
+  },
+});
 
 const PORT = 8000;
 
-const MIME_TYPES = {
-  default: 'application/octet-stream',
-  html: 'text/html; charset=UTF-8',
-  js: 'application/javascript; charset=UTF-8',
-  json: 'application/json',
-  css: 'text/css',
-  png: 'image/png',
-  jpg: 'image/jpg',
-  gif: 'image/gif',
+// Register static file serving plugin
+fastify.register(require('@fastify/static'), {
+  root: require('path').join(__dirname, 'static'),
+  prefix: '/',
+  index: ['index.html'],
+  setHeaders: (res, path) => {
+    // Set appropriate cache headers for static assets
+    if (path.endsWith('.js') || path.endsWith('.css')) {
+      res.setHeader('Cache-Control', 'public, max-age=3600'); // 1 hour
+    } else if (path.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache');
+    }
+  },
+});
+
+// Custom 404 handler to serve our 404.html page
+fastify.setNotFoundHandler((request, reply) => {
+  reply.code(404).type('text/html').sendFile('404.html');
+});
+
+// Add request logging hook
+fastify.addHook('onRequest', async (request, reply) => {
+  request.log.info(`${request.method} ${request.url}`);
+});
+
+// Graceful shutdown handling
+const gracefulShutdown = async (signal) => {
+  console.log(`Received ${signal}, shutting down gracefully...`);
+  try {
+    await fastify.close();
+    console.log('Server closed successfully');
+    process.exit(0);
+  } catch (error) {
+    console.error('Error during shutdown:', error);
+    process.exit(1);
+  }
 };
 
-const STATIC_PATH = path.join(process.cwd(), 'static');
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
-const toBool = [() => true, () => false];
-
-const prepareFile = async (url) => {
-  const paths = [STATIC_PATH, url];
-  if (url.endsWith('/')) paths.push('index.html');
-  const filePath = path.join(...paths);
-  const pathTraversal = !filePath.startsWith(STATIC_PATH);
-  const exists = await fs.promises.access(filePath).then(...toBool);
-  const found = !pathTraversal && exists;
-  const streamPath = found ? filePath : STATIC_PATH + '/404.html';
-  const ext = path.extname(streamPath).substring(1).toLowerCase();
-  const stream = fs.createReadStream(streamPath);
-  return { found, ext, stream };
+// Start the server
+const start = async () => {
+  try {
+    await fastify.listen({ port: PORT, host: '127.0.0.1' });
+    console.log(`Server running at http://127.0.0.1:${PORT}/`);
+  } catch (error) {
+    fastify.log.error(error);
+    process.exit(1);
+  }
 };
 
-http
-  .createServer(async (req, res) => {
-    const file = await prepareFile(req.url);
-    const statusCode = file.found ? 200 : 404;
-    const mimeType = MIME_TYPES[file.ext] || MIME_TYPES.default;
-    res.writeHead(statusCode, { 'Content-Type': mimeType });
-    file.stream.pipe(res);
-    console.log(`${req.method} ${req.url} ${statusCode}`);
-  })
-  .listen(PORT);
-
-console.log(`Server running at http://127.0.0.1:${PORT}/`);
+start();

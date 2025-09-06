@@ -1,8 +1,5 @@
-import { Database } from './database.js';
-import { UserRepository, UserService } from './user.js';
-import { FileSystemStorage } from './filesystem-storage.js';
-import { FileSystemRepository } from './filesystem-repository.js';
-import { FileSystemUserService } from './filesystem-service.js';
+import { StorageStrategyFactory } from './storage-strategy.js';
+import { UnifiedUserService } from './unified-user-service.js';
 
 class Logger {
   #output;
@@ -17,6 +14,10 @@ class Logger {
     this.#output.scrollTop = this.#output.scrollHeight;
   }
 
+  clear() {
+    this.#output.textContent = '';
+  }
+
   static #serialize(x) {
     return typeof x === 'object' ? JSON.stringify(x, null, 2) : x;
   }
@@ -24,111 +25,149 @@ class Logger {
 
 const logger = new Logger('output');
 
+// Storage management
+let currentStrategy = null;
+const userService = new UnifiedUserService();
+
+// UI elements
+const strategySelect = document.getElementById('storage-strategy');
+const strategyIndicator = document.getElementById('strategy-indicator');
+const connectionStatus = document.getElementById('connection-status');
+
+// Initialize supported strategies
+function initializeStrategyDropdown() {
+  const supportedStrategies = StorageStrategyFactory.getSupportedStrategies();
+  
+  strategySelect.innerHTML = '<option value="">Select Storage Strategy</option>';
+  
+  supportedStrategies.forEach(strategy => {
+    const option = document.createElement('option');
+    option.value = strategy.type;
+    option.textContent = strategy.name;
+    strategySelect.appendChild(option);
+  });
+
+  // Load saved strategy preference
+  const savedStrategy = localStorage.getItem('preferred-storage-strategy');
+  if (savedStrategy && supportedStrategies.some(s => s.type === savedStrategy)) {
+    strategySelect.value = savedStrategy;
+    switchStrategy(savedStrategy);
+  }
+}
+
+// Strategy switching
+async function switchStrategy(strategyType) {
+  try {
+    updateConnectionStatus('Connecting...', 'connecting');
+    logger.log(`Switching to ${strategyType} strategy...`);
+    
+    currentStrategy = await StorageStrategyFactory.createStrategy(strategyType);
+    userService.setStrategy(currentStrategy);
+    
+    // Save preference
+    localStorage.setItem('preferred-storage-strategy', strategyType);
+    
+    // Update UI
+    updateStrategyIndicator(currentStrategy.getName());
+    updateConnectionStatus('Connected', 'connected');
+    
+    logger.log(`Successfully connected to ${currentStrategy.getName()}`);
+  } catch (error) {
+    updateConnectionStatus('Error', 'error');
+    logger.log(`Error switching strategy: ${error.message}`);
+    strategySelect.value = '';
+  }
+}
+
+// UI updates
+function updateStrategyIndicator(strategyName) {
+  strategyIndicator.textContent = strategyName;
+  strategyIndicator.className = `strategy-indicator ${strategyName.toLowerCase()}`;
+}
+
+function updateConnectionStatus(status, className) {
+  connectionStatus.textContent = status;
+  connectionStatus.className = `connection-status ${className}`;
+}
+
+// Event handlers
+strategySelect.addEventListener('change', (event) => {
+  const selectedStrategy = event.target.value;
+  if (selectedStrategy) {
+    switchStrategy(selectedStrategy);
+  } else {
+    currentStrategy = null;
+    userService.setStrategy(null);
+    updateStrategyIndicator('None');
+    updateConnectionStatus('Disconnected', 'disconnected');
+    localStorage.removeItem('preferred-storage-strategy');
+  }
+});
+
+// Utility function for button actions
 const action = (id, handler) => {
   const element = document.getElementById(id);
   if (!element) return;
-  element.onclick = () => {
-    handler().catch((error) => {
-      logger.log(error.message);
-    });
+  element.onclick = async () => {
+    try {
+      if (!currentStrategy) {
+        logger.log('Please select a storage strategy first');
+        return;
+      }
+      await handler();
+    } catch (error) {
+      logger.log(`Error: ${error.message}`);
+    }
   };
 };
 
-const db = new Database('UserManager', 1, (db) => {
-  if (!db.objectStoreNames.contains('user')) {
-    db.createObjectStore('user', { keyPath: 'id', autoIncrement: true });
-  }
-});
-await db.connect();
-const userRepository = new UserRepository(db, 'user');
-const userService = new UserService(userRepository);
-
-// Initialize FileSystem storage
-const fsStorage = new FileSystemStorage('UserManagerFS');
-let fsUserRepository = null;
-let fsUserService = null;
-
-// Try to initialize FileSystem API
-try {
-  await fsStorage.connect();
-  fsUserRepository = new FileSystemRepository(fsStorage);
-  fsUserService = new FileSystemUserService(fsUserRepository);
-  logger.log('FileSystem API initialized successfully');
-} catch (error) {
-  logger.log('FileSystem API not available:', error.message);
-}
-
+// Button actions
 action('add', async () => {
   const name = prompt('Enter user name:');
+  if (!name) return;
   const age = parseInt(prompt('Enter age:'), 10);
+  if (isNaN(age)) return;
+  
   const user = await userService.createUser(name, age);
-  logger.log('Added:', user);
+  logger.log('Added user:', user);
 });
 
 action('get', async () => {
-  const users = await userRepository.getAll();
-  logger.log('Users:', users);
+  const users = await userService.getAllUsers();
+  logger.log('All users:', users);
 });
 
 action('update', async () => {
-  const user = await userService.incrementAge(1);
-  logger.log('Updated:', user);
+  const idStr = prompt('Enter user ID to update:');
+  if (!idStr) return;
+  const id = parseInt(idStr, 10);
+  
+  const user = await userService.incrementAge(id);
+  logger.log('Updated user:', user);
 });
 
 action('delete', async () => {
-  await userRepository.delete(2);
-  logger.log('Deleted user with id=2');
+  const idStr = prompt('Enter user ID to delete:');
+  if (!idStr) return;
+  const id = parseInt(idStr, 10);
+  
+  await userService.deleteUser(id);
+  logger.log(`Deleted user with id=${id}`);
 });
 
 action('adults', async () => {
   const adults = await userService.findAdults();
-  logger.log('Adults:', adults);
+  logger.log('Adult users:', adults);
 });
 
-// FileSystem API actions
-action('add-fs', async () => {
-  if (!fsUserService) {
-    logger.log('FileSystem API not available');
-    return;
-  }
-  const name = prompt('Enter user name:');
-  const age = parseInt(prompt('Enter age:'), 10);
-  const user = await fsUserService.createUser(name, age);
-  logger.log('Added to FileSystem:', user);
+action('clear-log', () => {
+  logger.clear();
 });
 
-action('get-fs', async () => {
-  if (!fsUserRepository) {
-    logger.log('FileSystem API not available');
-    return;
-  }
-  const users = await fsUserRepository.getAll();
-  logger.log('Users from FileSystem:', users);
-});
-
-action('update-fs', async () => {
-  if (!fsUserService) {
-    logger.log('FileSystem API not available');
-    return;
-  }
-  const user = await fsUserService.incrementAge(1);
-  logger.log('Updated in FileSystem:', user);
-});
-
-action('delete-fs', async () => {
-  if (!fsUserRepository) {
-    logger.log('FileSystem API not available');
-    return;
-  }
-  await fsUserRepository.delete(2);
-  logger.log('Deleted user with id=2 from FileSystem');
-});
-
-action('adults-fs', async () => {
-  if (!fsUserService) {
-    logger.log('FileSystem API not available');
-    return;
-  }
-  const adults = await fsUserService.findAdults();
-  logger.log('Adults from FileSystem:', adults);
+// Initialize application
+document.addEventListener('DOMContentLoaded', () => {
+  initializeStrategyDropdown();
+  updateStrategyIndicator('None');
+  updateConnectionStatus('Disconnected', 'disconnected');
+  logger.log('Application initialized. Select a storage strategy to begin.');
 });

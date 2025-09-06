@@ -8,13 +8,21 @@
 <body>
   <h1>IndexedDB Repository Example</h1>
   <div class="controls">
+    <div class="storage-selector">
+      <label for="storage-type">Storage Type:</label>
+      <select id="storage-type">
+        <option value="indexeddb">IndexedDB</option>
+        <option value="opfs">OPFS</option>
+      </select>
+    </div>
+
     <h3>IndexedDB Operations</h3>
     <button id="add">Add User</button>
     <button id="get">Get Users</button>
     <button id="update">Update User 1</button>
     <button id="delete">Delete User 2</button>
     <button id="adults">Find Adults</button>
-    
+
     <h3>FileSystem Operations</h3>
     <button id="add-fs">Add User (FS)</button>
     <button id="get-fs">Get Users (FS)</button>

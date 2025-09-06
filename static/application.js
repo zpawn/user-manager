@@ -17,12 +17,24 @@ class Logger {
     this.#output.scrollTop = this.#output.scrollHeight;
   }
 
+  reset() {
+    this.#output.textContent = '';
+  }
+
   static #serialize(x) {
     return typeof x === 'object' ? JSON.stringify(x, null, 2) : x;
   }
 }
 
 const logger = new Logger('output');
+
+const storageTypeSelect = document.getElementById('storage-type');
+if (storageTypeSelect) {
+  storageTypeSelect.addEventListener('change', () => {
+    logger.reset();
+    logger.log(`Storage type changed to: ${storageTypeSelect.value}`);
+  });
+}
 
 const action = (id, handler) => {
   const element = document.getElementById(id);

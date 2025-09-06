@@ -7,28 +7,21 @@
 </head>
 <body>
   <h1>IndexedDB Repository Example</h1>
-  
-  <div class="strategy-selector">
-    <label for="storage-strategy">Storage Strategy:</label>
-    <select id="storage-strategy">
-      <option value="">Select Storage Strategy</option>
-    </select>
-    <div class="status-indicators">
-      <span class="strategy-indicator" id="strategy-indicator">None</span>
-      <span class="connection-status disconnected" id="connection-status">Disconnected</span>
-    </div>
-  </div>
-  
   <div class="controls">
-    <h3>User Operations</h3>
+    <h3>IndexedDB Operations</h3>
     <button id="add">Add User</button>
     <button id="get">Get Users</button>
-    <button id="update">Update User</button>
-    <button id="delete">Delete User</button>
+    <button id="update">Update User 1</button>
+    <button id="delete">Delete User 2</button>
     <button id="adults">Find Adults</button>
-    <button id="clear-log" class="secondary">Clear Log</button>
+    
+    <h3>FileSystem Operations</h3>
+    <button id="add-fs">Add User (FS)</button>
+    <button id="get-fs">Get Users (FS)</button>
+    <button id="update-fs">Update User (FS)</button>
+    <button id="delete-fs">Delete User (FS)</button>
+    <button id="adults-fs">Find Adults (FS)</button>
   </div>
-  
   <pre id="output"></pre>
   <script type="module" src="./application.js"></script>
 </body>

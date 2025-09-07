@@ -1,4 +1,4 @@
-export class Database {
+class IndexedDBStorage {
   #db;
 
   constructor(name, version = 1, upgradeCallback) {
@@ -44,3 +44,5 @@ export class Database {
     });
   }
 }
+
+export { IndexedDBStorage };

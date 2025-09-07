@@ -1,5 +1,8 @@
-export class Repository {
+import { Repository } from '../core.js';
+
+class IndexedDBRepository extends Repository {
   constructor(database, storeName) {
+    super();
     this.db = database;
     this.storeName = storeName;
   }
@@ -43,8 +46,4 @@ export class Repository {
   }
 }
 
-export class Service {
-  constructor(repository) {
-    this.repository = repository;
-  }
-}
+export { IndexedDBRepository };

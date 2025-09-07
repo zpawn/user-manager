@@ -1,7 +1,8 @@
-import { FileSystemStorage } from './filesystem-storage.js';
+import { Repository } from '../core.js';
 
-export class FileSystemRepository {
-  constructor(storage, basePath = '/users') {
+class FileSystemRepository extends Repository {
+  constructor(storage, basePath) {
+    super();
     this.storage = storage;
     this.basePath = basePath;
   }
@@ -11,7 +12,7 @@ export class FileSystemRepository {
     if (!record.id) {
       record.id = Date.now();
     }
-    
+
     const path = `${this.basePath}/${record.id}.json`;
     await this.storage.writeFile(path, record);
     return record;
@@ -49,3 +50,5 @@ export class FileSystemRepository {
     await this.storage.deleteFile(path);
   }
 }
+
+export { FileSystemRepository };

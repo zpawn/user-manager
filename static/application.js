@@ -1,30 +1,11 @@
-import { Database } from './database.js';
-import { UserRepository, UserService } from './user.js';
-import { FileSystemStorage } from './filesystem-storage.js';
-import { FileSystemRepository } from './filesystem-repository.js';
-import { FileSystemUserService } from './filesystem-service.js';
-
-class Logger {
-  #output;
-
-  constructor(outputId) {
-    this.#output = document.getElementById(outputId);
-  }
-
-  log(...args) {
-    const lines = args.map(Logger.#serialize);
-    this.#output.textContent += lines.join(' ') + '\n';
-    this.#output.scrollTop = this.#output.scrollHeight;
-  }
-
-  reset() {
-    this.#output.textContent = '';
-  }
-
-  static #serialize(x) {
-    return typeof x === 'object' ? JSON.stringify(x, null, 2) : x;
-  }
-}
+import {
+  Logger,
+  IndexedDBStorage,
+  IndexedDBRepository,
+  FileSystemStorage,
+  FileSystemRepository,
+} from './core/index.js';
+import { UserService } from './user/index.js';
 
 const logger = new Logger('output');
 
@@ -36,6 +17,25 @@ if (storageTypeSelect) {
   });
 }
 
+const strategies = {
+  indexeddb: async () => {
+    const db = new IndexedDBStorage('UserManager', 1, (db) => {
+      if (!db.objectStoreNames.contains('user')) {
+        db.createObjectStore('user', { keyPath: 'id', autoIncrement: true });
+      }
+    });
+    await db.connect();
+    const userRepository = new IndexedDBRepository(db, 'user');
+    return userRepository;
+  },
+  opfs: async () => {
+    const fsStorage = new FileSystemStorage('UserManagerFS');
+    await fsStorage.connect();
+    const userRepository = new FileSystemRepository(fsStorage, 'user');
+    return userRepository;
+  },
+};
+
 const action = (id, handler) => {
   const element = document.getElementById(id);
   if (!element) return;
@@ -46,29 +46,8 @@ const action = (id, handler) => {
   };
 };
 
-const db = new Database('UserManager', 1, (db) => {
-  if (!db.objectStoreNames.contains('user')) {
-    db.createObjectStore('user', { keyPath: 'id', autoIncrement: true });
-  }
-});
-await db.connect();
-const userRepository = new UserRepository(db, 'user');
+const userRepository = await strategies[storageTypeSelect.value || 'indexeddb']();
 const userService = new UserService(userRepository);
-
-// Initialize FileSystem storage
-const fsStorage = new FileSystemStorage('UserManagerFS');
-let fsUserRepository = null;
-let fsUserService = null;
-
-// Try to initialize FileSystem API
-try {
-  await fsStorage.connect();
-  fsUserRepository = new FileSystemRepository(fsStorage);
-  fsUserService = new FileSystemUserService(fsUserRepository);
-  logger.log('FileSystem API initialized successfully');
-} catch (error) {
-  logger.log('FileSystem API not available:', error.message);
-}
 
 action('add', async () => {
   const name = prompt('Enter user name:');
@@ -99,48 +78,28 @@ action('adults', async () => {
 
 // FileSystem API actions
 action('add-fs', async () => {
-  if (!fsUserService) {
-    logger.log('FileSystem API not available');
-    return;
-  }
   const name = prompt('Enter user name:');
   const age = parseInt(prompt('Enter age:'), 10);
-  const user = await fsUserService.createUser(name, age);
+  const user = await userService.createUser(name, age);
   logger.log('Added to FileSystem:', user);
 });
 
 action('get-fs', async () => {
-  if (!fsUserRepository) {
-    logger.log('FileSystem API not available');
-    return;
-  }
-  const users = await fsUserRepository.getAll();
+  const users = await userRepository.getAll();
   logger.log('Users from FileSystem:', users);
 });
 
 action('update-fs', async () => {
-  if (!fsUserService) {
-    logger.log('FileSystem API not available');
-    return;
-  }
-  const user = await fsUserService.incrementAge(1);
+  const user = await userService.incrementAge(1);
   logger.log('Updated in FileSystem:', user);
 });
 
 action('delete-fs', async () => {
-  if (!fsUserRepository) {
-    logger.log('FileSystem API not available');
-    return;
-  }
-  await fsUserRepository.delete(2);
+  await userRepository.delete(2);
   logger.log('Deleted user with id=2 from FileSystem');
 });
 
 action('adults-fs', async () => {
-  if (!fsUserService) {
-    logger.log('FileSystem API not available');
-    return;
-  }
-  const adults = await fsUserService.findAdults();
+  const adults = await userService.findAdults();
   logger.log('Adults from FileSystem:', adults);
 });

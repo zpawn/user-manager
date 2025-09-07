@@ -1,10 +1,11 @@
 import {
   Logger,
-  DomainError,
-  ValidationAggregateError,
+  IndexedDBStorage,
+  IndexedDBRepository,
+  FileSystemStorage,
+  FileSystemRepository,
 } from './core/index.js';
-import { StorageStrategyFactory } from './storage-strategy.js';
-import { UnifiedUserService } from './unified-user-service.js';
+import { UserService } from './user/index.js';
 
 const logger = new Logger('output');
 
@@ -40,47 +41,17 @@ const action = (id, handler) => {
   if (!element) return;
   element.onclick = () => {
     handler().catch((error) => {
-      if (error instanceof DomainError || error instanceof AggregateError) {
-        logger.logError(error);
-      } else {
-        logger.log('Unexpected error:', error.message);
-        console.error('Full error:', error);
-      }
+      logger.log(error.message);
     });
   };
 };
 
-let currentStrategy = null;
-let userService = null;
-
-// Initialize strategy
-async function initializeStrategy(strategyType) {
-  try {
-    const factory = new StorageStrategyFactory();
-    currentStrategy = await factory.createStrategy(strategyType);
-    await currentStrategy.initialize();
-    userService = new UnifiedUserService(currentStrategy.getRepository());
-    
-    logger.log(`✅ Successfully switched to ${strategyType} storage`);
-    updateUI();
-  } catch (error) {
-    logger.logError(error);
-    statusElement.textContent = 'Error';
-    statusElement.className = 'status error';
-    throw error;
-  }
-}
+const userRepository = await strategies[storageTypeSelect.value || 'indexeddb']();
+const userService = new UserService(userRepository);
 
 action('add', async () => {
   const name = prompt('Enter user name:');
-  if (!name) return;
-  
   const age = parseInt(prompt('Enter age:'), 10);
-  if (isNaN(age)) {
-    logger.log('❌ Invalid age entered');
-    return;
-  }
-  
   const user = await userService.createUser(name, age);
   logger.log('Added:', user);
 });
@@ -96,7 +67,7 @@ action('update', async () => {
 });
 
 action('delete', async () => {
-  await userService.deleteUser(2);
+  await userRepository.delete(2);
   logger.log('Deleted user with id=2');
 });
 

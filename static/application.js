@@ -75,31 +75,3 @@ action('adults', async () => {
   const adults = await userService.findAdults();
   logger.log('Adults:', adults);
 });
-
-// FileSystem API actions
-action('add-fs', async () => {
-  const name = prompt('Enter user name:');
-  const age = parseInt(prompt('Enter age:'), 10);
-  const user = await userService.createUser(name, age);
-  logger.log('Added to FileSystem:', user);
-});
-
-action('get-fs', async () => {
-  const users = await userRepository.getAll();
-  logger.log('Users from FileSystem:', users);
-});
-
-action('update-fs', async () => {
-  const user = await userService.incrementAge(1);
-  logger.log('Updated in FileSystem:', user);
-});
-
-action('delete-fs', async () => {
-  await userRepository.delete(2);
-  logger.log('Deleted user with id=2 from FileSystem');
-});
-
-action('adults-fs', async () => {
-  const adults = await userService.findAdults();
-  logger.log('Adults from FileSystem:', adults);
-});

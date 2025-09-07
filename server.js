@@ -8,12 +8,8 @@ fastify.register(require('@fastify/static'), {
   root: require('path').join(__dirname, 'static'),
   prefix: '/',
   index: ['index.html'],
-  setHeaders: (res, path) => {
-    if (path.endsWith('.js') || path.endsWith('.css')) {
-      res.setHeader('Cache-Control', 'public, max-age=3600');
-    } else if (path.endsWith('.html')) {
-      res.setHeader('Cache-Control', 'no-cache');
-    }
+  setHeaders: (res) => {
+    res.setHeader('Cache-Control', 'no-cache');
   },
 });
 

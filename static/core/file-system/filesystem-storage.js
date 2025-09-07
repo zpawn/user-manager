@@ -1,12 +1,3 @@
-import {
-  FileSystemError,
-  FileNotFoundError,
-  DirectoryCreationError,
-  FileWriteError,
-  FileReadError,
-  FileDeleteError,
-} from '../errors/index.js';
-
 class FileSystemStorage {
   #root = null;
 
@@ -16,7 +7,7 @@ class FileSystemStorage {
 
   async connect() {
     if (!navigator.storage || !navigator.storage.getDirectory) {
-      throw new FileSystemError('File System Access API is not supported');
+      throw new Error('File System Access API is not supported');
     }
 
     this.#root = await navigator.storage.getDirectory();
@@ -25,17 +16,12 @@ class FileSystemStorage {
     try {
       await this.#root.getDirectoryHandle(this.name, { create: true });
     } catch (error) {
-      throw new DirectoryCreationError(
-        `Failed to create root directory: ${this.name}`,
-        error
-      );
+      throw new Error(`Failed to create root directory: ${error.message}`);
     }
   }
 
   async createDirectory(path) {
-    if (!this.#root) {
-      throw new FileSystemError('Storage not connected');
-    }
+    if (!this.#root) throw new Error('Storage not connected');
 
     const pathParts = path.split('/').filter(part => part);
     let currentDir = this.#root;
@@ -44,55 +30,40 @@ class FileSystemStorage {
     currentDir = await currentDir.getDirectoryHandle(this.name);
 
     // Create nested directories
-    try {
-      for (const part of pathParts) {
-        currentDir = await currentDir.getDirectoryHandle(part, { create: true });
-      }
-    } catch (error) {
-      throw new DirectoryCreationError(
-        `Failed to create directory: ${path}`,
-        error
-      );
+    for (const part of pathParts) {
+      currentDir = await currentDir.getDirectoryHandle(part, { create: true });
     }
 
     return currentDir;
   }
 
   async writeFile(path, data) {
-    if (!this.#root) {
-      throw new FileSystemError('Storage not connected');
-    }
+    if (!this.#root) throw new Error('Storage not connected');
 
     const pathParts = path.split('/').filter(part => part);
     const fileName = pathParts.pop();
     const dirPath = pathParts.join('/');
 
-    try {
-      // Create directory structure if needed
-      let targetDir = await this.#root.getDirectoryHandle(this.name);
-      if (dirPath) {
-        for (const part of pathParts) {
-          targetDir = await targetDir.getDirectoryHandle(part, { create: true });
-        }
+    // Create directory structure if needed
+    let targetDir = await this.#root.getDirectoryHandle(this.name);
+    if (dirPath) {
+      for (const part of pathParts) {
+        targetDir = await targetDir.getDirectoryHandle(part, { create: true });
       }
-
-      // Write file
-      const fileHandle = await targetDir.getFileHandle(fileName, { create: true });
-      const writable = await fileHandle.createWritable();
-
-      // Convert objects to JSON
-      const content = typeof data === 'object' ? JSON.stringify(data, null, 2) : data;
-      await writable.write(content);
-      await writable.close();
-    } catch (error) {
-      throw new FileWriteError(`Failed to write file: ${path}`, error);
     }
+
+    // Write file
+    const fileHandle = await targetDir.getFileHandle(fileName, { create: true });
+    const writable = await fileHandle.createWritable();
+
+    // Convert objects to JSON
+    const content = typeof data === 'object' ? JSON.stringify(data, null, 2) : data;
+    await writable.write(content);
+    await writable.close();
   }
 
   async readFile(path) {
-    if (!this.#root) {
-      throw new FileSystemError('Storage not connected');
-    }
+    if (!this.#root) throw new Error('Storage not connected');
 
     const pathParts = path.split('/').filter(part => part);
     const fileName = pathParts.pop();
@@ -120,16 +91,14 @@ class FileSystemStorage {
       }
     } catch (error) {
       if (error.name === 'NotFoundError') {
-        throw new FileNotFoundError(`File not found: ${path}`, error);
+        return null;
       }
-      throw new FileReadError(`Failed to read file: ${path}`, error);
+      throw error;
     }
   }
 
   async deleteFile(path) {
-    if (!this.#root) {
-      throw new FileSystemError('Storage not connected');
-    }
+    if (!this.#root) throw new Error('Storage not connected');
 
     const pathParts = path.split('/').filter(part => part);
     const fileName = pathParts.pop();
@@ -151,14 +120,12 @@ class FileSystemStorage {
         // File doesn't exist, consider it already deleted
         return;
       }
-      throw new FileDeleteError(`Failed to delete file: ${path}`, error);
+      throw error;
     }
   }
 
   async listFiles(directory) {
-    if (!this.#root) {
-      throw new FileSystemError('Storage not connected');
-    }
+    if (!this.#root) throw new Error('Storage not connected');
 
     const pathParts = directory.split('/').filter(part => part);
 
@@ -182,7 +149,7 @@ class FileSystemStorage {
       if (error.name === 'NotFoundError') {
         return [];
       }
-      throw new FileReadError(`Failed to list files in directory: ${directory}`, error);
+      throw error;
     }
   }
 }

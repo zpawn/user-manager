@@ -9,45 +9,64 @@ import { UserService } from './user/index.js';
 
 const logger = new Logger('output');
 
-const storageTypeSelect = document.getElementById('storage-type');
-if (storageTypeSelect) {
-  storageTypeSelect.addEventListener('change', () => {
-    logger.reset();
-    logger.log(`Storage type changed to: ${storageTypeSelect.value}`);
-  });
+function handleError(error, operation) {
+  console.error(`Error in ${operation}:`, { error, typeof: typeof error });
 }
 
 const strategies = {
   indexeddb: async () => {
-    const db = new IndexedDBStorage('UserManager', 1, (db) => {
-      if (!db.objectStoreNames.contains('user')) {
-        db.createObjectStore('user', { keyPath: 'id', autoIncrement: true });
-      }
-    });
-    await db.connect();
-    const userRepository = new IndexedDBRepository(db, 'user');
-    return userRepository;
+    try {
+      const db = new IndexedDBStorage('UserManager', 1, (db) => {
+        if (!db.objectStoreNames.contains('user')) {
+          db.createObjectStore('user', { keyPath: 'id', autoIncrement: true });
+        }
+      });
+      await db.connect();
+      const userRepository = new IndexedDBRepository(db, 'user');
+      return userRepository;
+    } catch (error) {
+      handleError(error, 'IndexedDB initialization');
+      throw error;
+    }
   },
   opfs: async () => {
-    const fsStorage = new FileSystemStorage('UserManagerFS');
-    await fsStorage.connect();
-    const userRepository = new FileSystemRepository(fsStorage, 'user');
-    return userRepository;
+    try {
+      const fsStorage = new FileSystemStorage('UserManagerFS');
+      await fsStorage.connect();
+      const userRepository = new FileSystemRepository(fsStorage, 'user');
+      return userRepository;
+    } catch (error) {
+      handleError(error, 'OPFS initialization');
+      throw error;
+    }
   },
 };
+
+let userRepository;
+let userService;
+
+const storageTypeSelect = document.getElementById('storage-type');
+if (storageTypeSelect) {
+  storageTypeSelect.addEventListener('change', async () => {
+    logger.reset();
+
+    const storageType = storageTypeSelect.value || 'indexeddb';
+    userRepository = await strategies[storageType]();
+    userService = new UserService(userRepository);
+
+    logger.log(`Storage type changed to: ${storageTypeSelect.value}`);
+  });
+}
 
 const action = (id, handler) => {
   const element = document.getElementById(id);
   if (!element) return;
   element.onclick = () => {
     handler().catch((error) => {
-      logger.log(error.message);
+      handleError(error, id);
     });
   };
 };
-
-const userRepository = await strategies[storageTypeSelect.value || 'indexeddb']();
-const userService = new UserService(userRepository);
 
 action('add', async () => {
   const name = prompt('Enter user name:');

@@ -1,3 +1,5 @@
+import { FileSystemError } from '../errors.js';
+
 class FileSystemStorage {
   #root = null;
 
@@ -7,63 +9,121 @@ class FileSystemStorage {
 
   async connect() {
     if (!navigator.storage || !navigator.storage.getDirectory) {
-      throw new Error('File System Access API is not supported');
+      throw new FileSystemError(
+        'File System Access API is not supported in this browser',
+        null,
+        '/',
+        'connect',
+      );
     }
 
-    this.#root = await navigator.storage.getDirectory();
+    try {
+      this.#root = await navigator.storage.getDirectory();
+    } catch (error) {
+      throw new FileSystemError(
+        'Failed to access OPFS root directory',
+        error,
+        '/',
+        'connect',
+      );
+    }
 
     // Create root directory for this storage instance
     try {
       await this.#root.getDirectoryHandle(this.name, { create: true });
     } catch (error) {
-      throw new Error(`Failed to create root directory: ${error.message}`);
+      throw new FileSystemError(
+        `Failed to create root directory: ${this.name}`,
+        error,
+        `/${this.name}`,
+        'connect',
+      );
     }
   }
 
   async createDirectory(path) {
-    if (!this.#root) throw new Error('Storage not connected');
+    if (!this.#root) {
+      throw new FileSystemError(
+        'Storage not connected',
+        null,
+        path,
+        'createDirectory',
+      );
+    }
 
     const pathParts = path.split('/').filter(part => part);
     let currentDir = this.#root;
 
-    // Navigate to storage root
-    currentDir = await currentDir.getDirectoryHandle(this.name);
+    try {
+      // Navigate to storage root
+      currentDir = await currentDir.getDirectoryHandle(this.name);
 
-    // Create nested directories
-    for (const part of pathParts) {
-      currentDir = await currentDir.getDirectoryHandle(part, { create: true });
+      // Create nested directories
+      for (const part of pathParts) {
+        currentDir = await currentDir.getDirectoryHandle(part, { create: true });
+      }
+
+      return currentDir;
+    } catch (error) {
+      throw new FileSystemError(
+        `Failed to create directory: ${path}`,
+        error,
+        path,
+        'createDirectory',
+      );
     }
-
-    return currentDir;
   }
 
   async writeFile(path, data) {
-    if (!this.#root) throw new Error('Storage not connected');
-
-    const pathParts = path.split('/').filter(part => part);
-    const fileName = pathParts.pop();
-    const dirPath = pathParts.join('/');
-
-    // Create directory structure if needed
-    let targetDir = await this.#root.getDirectoryHandle(this.name);
-    if (dirPath) {
-      for (const part of pathParts) {
-        targetDir = await targetDir.getDirectoryHandle(part, { create: true });
-      }
+    if (!this.#root) {
+      throw new FileSystemError(
+        'Storage not connected',
+        null,
+        path,
+        'writeFile'
+      );
     }
 
-    // Write file
-    const fileHandle = await targetDir.getFileHandle(fileName, { create: true });
-    const writable = await fileHandle.createWritable();
+    try {
+      const pathParts = path.split('/').filter(part => part);
+      const fileName = pathParts.pop();
+      const dirPath = pathParts.join('/');
 
-    // Convert objects to JSON
-    const content = typeof data === 'object' ? JSON.stringify(data, null, 2) : data;
-    await writable.write(content);
-    await writable.close();
+      // Create directory structure if needed
+      let targetDir = await this.#root.getDirectoryHandle(this.name);
+      if (dirPath) {
+        for (const part of pathParts) {
+          targetDir = await targetDir.getDirectoryHandle(part, { create: true });
+        }
+      }
+
+      // Write file
+      const fileHandle = await targetDir.getFileHandle(fileName, { create: true });
+      const writable = await fileHandle.createWritable();
+
+      // Convert objects to JSON
+      const content = typeof data === 'object' ? JSON.stringify(data, null, 2) : data;
+      await writable.write(content);
+      await writable.close();
+    } catch (error) {
+      throw new FileSystemError(
+        `Failed to write file: ${path}`,
+        error,
+        path,
+        'writeFile'
+      );
+    }
   }
 
   async readFile(path) {
-    if (!this.#root) throw new Error('Storage not connected');
+    if (!this.#root) {
+      throw new FileSystemError(
+        'Storage not connected',
+        null,
+        path,
+        'readFile'
+      );
+    }
 
     const pathParts = path.split('/').filter(part => part);
     const fileName = pathParts.pop();
@@ -93,12 +153,24 @@ class FileSystemStorage {
       if (error.name === 'NotFoundError') {
         return null;
       }
-      throw error;
+      throw new FileSystemError(
+        `Failed to read file: ${path}`,
+        error,
+        path,
+        'readFile'
+      );
     }
   }
 
   async deleteFile(path) {
-    if (!this.#root) throw new Error('Storage not connected');
+    if (!this.#root) {
+      throw new FileSystemError(
+        'Storage not connected',
+        null,
+        path,
+        'deleteFile'
+      );
+    }
 
     const pathParts = path.split('/').filter(part => part);
     const fileName = pathParts.pop();
@@ -120,12 +192,24 @@ class FileSystemStorage {
         // File doesn't exist, consider it already deleted
         return;
       }
-      throw error;
+      throw new FileSystemError(
+        `Failed to delete file: ${path}`,
+        error,
+        path,
+        'deleteFile'
+      );
     }
   }
 
   async listFiles(directory) {
-    if (!this.#root) throw new Error('Storage not connected');
+    if (!this.#root) {
+      throw new FileSystemError(
+        'Storage not connected',
+        null,
+        directory,
+        'listFiles'
+      );
+    }
 
     const pathParts = directory.split('/').filter(part => part);
 
@@ -149,7 +233,12 @@ class FileSystemStorage {
       if (error.name === 'NotFoundError') {
         return [];
       }
-      throw error;
+      throw new FileSystemError(
+        `Failed to list files in directory: ${directory}`,
+        error,
+        directory,
+        'listFiles'
+      );
     }
   }
 }

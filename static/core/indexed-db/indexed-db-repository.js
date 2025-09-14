@@ -1,4 +1,6 @@
-import { Repository, StorageError, ValidationError } from '../index.js';
+import { Repository } from '../core.js';
+import { StorageError, ValidationError } from '../errors.js';
+import { QueryBuilder } from '../query-builder.js';
 
 class IndexedDBRepository extends Repository {
   constructor(database, storeName) {
@@ -11,6 +13,10 @@ class IndexedDBRepository extends Repository {
     return this.db.exec(this.storeName, 'readwrite', (store) =>
       store.add(record),
     );
+  }
+
+  select() {
+    return new QueryBuilder(this);
   }
 
   getAll() {

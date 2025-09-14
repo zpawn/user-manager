@@ -66,8 +66,9 @@ export class UserService extends Service {
 
   async findAdults() {
     try {
-      const users = await this.repository.getAll();
-      return users.filter((user) => user.age >= 18);
+      return await this.repository.select()
+        .where('age', '>=', 18)
+        .execute();
     } catch (error) {
       throw new ValidationError('Failed to find adult users', {
         cause: error,

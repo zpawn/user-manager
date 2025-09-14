@@ -1,5 +1,6 @@
 import { Repository } from '../core.js';
 import { StorageError, ValidationError } from '../errors.js';
+import { QueryBuilder } from '../query-builder.js';
 
 class FileSystemRepository extends Repository {
   constructor(storage, basePath) {
@@ -36,6 +37,10 @@ class FileSystemRepository extends Repository {
         { cause: error, storageType: 'filesystem', operation: 'insert' },
       );
     }
+  }
+
+  select() {
+    return new QueryBuilder(this);
   }
 
   async getAll() {

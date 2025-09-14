@@ -1,10 +1,15 @@
 import { Repository, StorageError, ValidationError } from '../index.js';
+import { IndexedDBQueryBuilder } from './query-builder.js';
 
 class IndexedDBRepository extends Repository {
   constructor(database, storeName) {
     super();
     this.db = database;
     this.storeName = storeName;
+  }
+
+  select() {
+    return new IndexedDBQueryBuilder(this);
   }
 
   insert(record) {

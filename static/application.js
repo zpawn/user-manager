@@ -94,22 +94,3 @@ action('adults', async () => {
   const adults = await userService.findAdults();
   logger.log('Adults:', adults);
 });
-
-action('search', async () => {
-  const users = await unifiedUserService.searchUsers('a');
-  logger.log('Users with "a" in name:', users);
-});
-
-action('paginated', async () => {
-  const users = await unifiedUserService.getUsersPaginated(1, 5);
-  logger.log('Page 1 (5 users):', users);
-});
-
-action('dsl-demo', async () => {
-  try {
-    const results = await unifiedUserService.demonstrateDSL();
-    logger.log('DSL Demo - Adults with "a" in name (limit 3):', results);
-  } catch (error) {
-    logger.log('DSL Demo Error:', error.message);
-  }
-});

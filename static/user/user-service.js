@@ -4,24 +4,17 @@ import { ValidationError } from '../core/errors.js';
 
 export class UserService extends Service {
   async createUser(name, age) {
-    // Simple validation
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
       throw new ValidationError(
         'Name is required and must be a non-empty string',
-        {
-          field: 'name',
-          value: name,
-        },
+        { field: 'name', value: name },
       );
     }
     if (age === undefined || age === null ||
         !Number.isInteger(age) || age < 0) {
       throw new ValidationError(
         'Age is required and must be a non-negative integer',
-        {
-          field: 'age',
-          value: age,
-        },
+        { field: 'age', value: age },
       );
     }
 
@@ -30,7 +23,6 @@ export class UserService extends Service {
       await this.repository.insert(user);
       return user;
     } catch (error) {
-      // Wrap any error as operation-level ValidationError
       throw new ValidationError('Failed to create user', {
         cause: error,
         operation: 'createUser',
@@ -39,7 +31,6 @@ export class UserService extends Service {
   }
 
   async incrementAge(id) {
-    // Simple validation
     if (!id) {
       throw new ValidationError(
         'User ID is required',
@@ -66,7 +57,6 @@ export class UserService extends Service {
       await this.repository.update(user);
       return user;
     } catch (error) {
-      // Wrap as operation-level ValidationError
       throw new ValidationError(
         `Failed to increment age for user with ID: ${id}`,
         { cause: error, operation: 'incrementAge', userId: id },

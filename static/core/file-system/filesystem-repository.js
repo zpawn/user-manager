@@ -23,7 +23,6 @@ class FileSystemRepository extends Repository {
     }
 
     try {
-      // Generate ID if not present
       if (!record.id) {
         record.id = Date.now();
       }
@@ -122,7 +121,6 @@ class FileSystemRepository extends Repository {
   }
 
   async delete(id) {
-    // Simple validation
     if (!id) {
       throw new ValidationError('ID is required', { field: 'id', value: id });
     }

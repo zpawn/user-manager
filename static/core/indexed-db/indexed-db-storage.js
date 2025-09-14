@@ -1,3 +1,5 @@
+import { StorageError } from '../errors.js';
+
 class IndexedDBStorage {
   #db;
 
@@ -21,7 +23,13 @@ class IndexedDBStorage {
         resolve();
       };
 
-      request.onerror = () => reject(request.error);
+      request.onerror = () => reject(
+        new StorageError('Failed to connect to IndexedDB', {
+          cause: request.error,
+          storageType: 'indexeddb',
+          operation: 'connect',
+        }),
+      );
     });
   }
 
@@ -37,9 +45,19 @@ class IndexedDBStorage {
         const store = tx.objectStore(storeName);
         const result = operation(store);
         tx.oncomplete = () => resolve(result);
-        tx.onerror = () => reject(tx.error);
+        tx.onerror = () => reject(
+          new StorageError('Failed to execute transaction', {
+            cause: tx.error,
+            storageType: 'indexeddb',
+            operation: 'exec',
+          }),
+        );
       } catch (err) {
-        reject(err);
+        reject(new StorageError('Failed to execute transaction', {
+          cause: err,
+          storageType: 'indexeddb',
+          operation: 'exec',
+        }));
       }
     });
   }

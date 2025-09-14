@@ -1,4 +1,4 @@
-class DomainError extends Error {
+export class DomainError extends Error {
   constructor(message, cause, context = {}) {
     super(message);
     this.name = this.constructor.name;

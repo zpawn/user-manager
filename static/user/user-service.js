@@ -66,12 +66,67 @@ export class UserService extends Service {
 
   async findAdults() {
     try {
-      const users = await this.repository.getAll();
-      return users.filter((user) => user.age >= 18);
+      // Use DSL if available (IndexedDB), otherwise fallback to manual filtering
+      if (typeof this.repository.select === 'function') {
+        return await this.repository
+          .select()
+          .where('age', '>=', 18)
+          .execute();
+      } else {
+        const users = await this.repository.getAll();
+        return users.filter((user) => user.age >= 18);
+      }
     } catch (error) {
       throw new ValidationError('Failed to find adult users', {
         cause: error,
         operation: 'findAdults',
+      });
+    }
+  }
+
+  async searchUsers(namePattern) {
+    try {
+      if (typeof this.repository.select === 'function') {
+        return await this.repository
+          .select()
+          .where('name', 'includes', namePattern)
+          .orderBy('name', 'asc')
+          .execute();
+      } else {
+        const users = await this.repository.getAll();
+        return users
+          .filter(user => user.name.toLowerCase().includes(namePattern.toLowerCase()))
+          .sort((a, b) => a.name.localeCompare(b.name));
+      }
+    } catch (error) {
+      throw new ValidationError('Failed to search users', {
+        cause: error,
+        operation: 'searchUsers',
+      });
+    }
+  }
+
+  async getUsersPaginated(page = 1, pageSize = 5) {
+    try {
+      const offset = (page - 1) * pageSize;
+      
+      if (typeof this.repository.select === 'function') {
+        return await this.repository
+          .select()
+          .orderBy('id', 'asc')
+          .offset(offset)
+          .limit(pageSize)
+          .execute();
+      } else {
+        const users = await this.repository.getAll();
+        return users
+          .sort((a, b) => a.id - b.id)
+          .slice(offset, offset + pageSize);
+      }
+    } catch (error) {
+      throw new ValidationError('Failed to get paginated users', {
+        cause: error,
+        operation: 'getUsersPaginated',
       });
     }
   }
